@@ -12,6 +12,9 @@ import { useAuth } from '../../hooks/useAuth';
 import { moduleService } from '../../services/module.service';
 import type { MenuItem } from '../../types';
 
+// Actions checked when deciding whether to show a module in the sidebar
+const MODULE_ACTIONS = ['read', 'create', 'update', 'delete', 'export', 'import'] as const;
+
 // Map icon names stored in the DB to Lucide components
 const iconMap: Record<string, React.ReactNode> = {
   'layout-dashboard': <LayoutDashboard size={18} />,
@@ -118,7 +121,7 @@ const Sidebar: React.FC = () => {
   const dispatch = useAppDispatch();
   const { sidebarCollapsed, sidebarMobileOpen } = useAppSelector((state) => state.app);
   const { isAuthenticated } = useAppSelector((state) => state.auth);
-  const { isAdmin } = useAuth();
+  const { user, isAdmin, hasPermission } = useAuth();
 
   const { data: menuItems = [] } = useQuery({
     queryKey: ['menu-tree'],
@@ -127,7 +130,20 @@ const Sidebar: React.FC = () => {
     staleTime: 30 * 1000, // 30 s — refresh after module changes
   });
 
-  const dynamicNavItems: NavItemDef[] = menuItems.map(menuItemToNav);
+  // Frontend safety-net: filter dynamic menu items by the user's permissions.
+  // Skip the filter when user is null (page-refresh hydration window) — the backend
+  // already filtered the menu response, so trust it until user loads into Redux.
+  const dynamicNavItems: NavItemDef[] = menuItems
+    .filter((item) => {
+      if (!user) return true; // hydrating — trust backend-filtered response
+      if (isAdmin) return true;
+      // Extract the module slug from paths of the form /modules/{slug}
+      const match = item.path?.match(/^\/modules\/([^/]+)/);
+      if (!match) return true; // non-module path — always show
+      const moduleSlug = match[1];
+      return MODULE_ACTIONS.some((action) => hasPermission(`${moduleSlug}.${action}`));
+    })
+    .map(menuItemToNav);
 
   return (
     <>

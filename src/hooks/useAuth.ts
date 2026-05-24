@@ -33,11 +33,15 @@ export const useAuth = () => {
   const hasPermission = useCallback(
     (permission: string) => {
       if (!user) return false;
-      if (user.role?.slug === 'super-admin' || user.role?.slug === 'admin') return true;
-      const userPerms = user.permissions || [];
-      if (userPerms.includes('*')) return true;
-      if (userPerms.includes(permission)) return true;
-      const rolePerms = (user.role?.permissions || []).map((p) => p.slug);
+      const roleSlug = user.role?.slug;
+      if (roleSlug === 'super-admin' || roleSlug === 'admin') return true;
+      // User-level extra permissions (JSON column)
+      const userPerms = Array.isArray(user.permissions) ? user.permissions : [];
+      if (userPerms.includes('*') || userPerms.includes(permission)) return true;
+      // Role permissions (eager-loaded Permission objects)
+      const rolePerms = (user.role?.permissions || [])
+        .map((p) => p.slug)
+        .filter(Boolean);
       return rolePerms.includes(permission);
     },
     [user]

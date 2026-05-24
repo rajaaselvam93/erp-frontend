@@ -1,8 +1,10 @@
 import React, { useState, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Navigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { ShieldOff } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { moduleService } from '../../services/module.service';
+import { useAuth } from '../../hooks/useAuth';
 import DynamicTable from '../../components/dynamic/DynamicTable';
 import DynamicForm from '../../components/dynamic/DynamicForm';
 import Modal from '../../components/ui/Modal';
@@ -13,6 +15,7 @@ import type { DynamicRecord, PaginationMeta } from '../../types';
 const DynamicModule: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const queryClient = useQueryClient();
+  const { hasPermission } = useAuth();
 
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -23,22 +26,34 @@ const DynamicModule: React.FC = () => {
   const [viewRecord, setViewRecord] = useState<DynamicRecord | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
-  // Fetch module definition (field schema) independently so it is always
-  // up-to-date even after the Field Builder adds/edits/removes fields.
+  // Per-module permission flags — computed once per slug
+  const canRead   = hasPermission(`${slug}.read`);
+  const canCreate = hasPermission(`${slug}.create`);
+  const canUpdate = hasPermission(`${slug}.update`);
+  const canDelete = hasPermission(`${slug}.delete`);
+  const canExport = hasPermission(`${slug}.export`);
+
+  // Access gate: user must have at least ONE permission for this module.
+  // (read-only, create-only, etc. are all valid reasons to land on this page)
+  const hasAnyAccess = canRead || canCreate || canUpdate || canDelete || canExport
+    || hasPermission(`${slug}.import`);
+
+  // Fetch module definition (field schema) if user has any access
   const { data: moduleDefinition } = useQuery({
     queryKey: ['module-by-slug', slug],
     queryFn: () => moduleService.getModuleBySlug(slug!),
-    enabled: !!slug,
-    staleTime: 0, // always re-fetch when navigating to the page
+    enabled: !!slug && hasAnyAccess,
+    staleTime: 0,
   });
 
   const queryKey = ['module-records', slug, page, search, sortBy, sortOrder];
 
-  const { data, isLoading, refetch } = useQuery({
+  // Only fetch records when user can actually read them
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey,
     queryFn: () =>
       moduleService.getRecords(slug!, { page, limit: 20, search, sortBy, sortOrder }),
-    enabled: !!slug,
+    enabled: !!slug && canRead,
   });
 
   const createMutation = useMutation({
@@ -113,8 +128,43 @@ const DynamicModule: React.FC = () => {
     setPage(1);
   }, []);
 
-  // Prefer the separately-fetched module definition; fall back to what
-  // getRecords embeds in its response while the definition query is loading.
+  if (!slug) return null;
+
+  // User has no access to this module at all
+  if (!hasAnyAccess) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
+          <ShieldOff size={28} className="text-red-500" />
+        </div>
+        <div>
+          <h2 className="text-xl font-semibold text-surface-900 dark:text-surface-50">Access Denied</h2>
+          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
+            You don't have permission to view this module.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // API returned 403 (e.g., user manually typed URL)
+  const is403 = isError && (error as { response?: { status?: number } })?.response?.status === 403;
+  if (is403) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
+          <ShieldOff size={28} className="text-red-500" />
+        </div>
+        <div>
+          <h2 className="text-xl font-semibold text-surface-900 dark:text-surface-50">Access Denied</h2>
+          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
+            You don't have permission to access this module.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const fields = moduleDefinition?.fields || data?.module?.fields || [];
   const records = data?.data || [];
   const meta: PaginationMeta = {
@@ -126,13 +176,10 @@ const DynamicModule: React.FC = () => {
     hasPrev: (data?.page || 1) > 1,
   };
 
-  if (!slug) return null;
-
   const moduleName = moduleDefinition?.name || data?.module?.name || slug.charAt(0).toUpperCase() + slug.slice(1);
 
   return (
     <div className="space-y-4 animate-fade-in">
-      {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-surface-900 dark:text-surface-50">{moduleName}</h1>
@@ -142,7 +189,6 @@ const DynamicModule: React.FC = () => {
         </div>
       </div>
 
-      {/* Dynamic Table */}
       <DynamicTable
         fields={fields}
         data={records}
@@ -152,41 +198,45 @@ const DynamicModule: React.FC = () => {
         onPageChange={setPage}
         onSearch={handleSearch}
         onSort={handleSort}
-        onAdd={() => { setEditRecord(null); setShowForm(true); }}
+        onAdd={canCreate ? () => { setEditRecord(null); setShowForm(true); } : undefined}
         onView={setViewRecord}
-        onEdit={(record) => { setEditRecord(record); setShowForm(true); }}
-        onDelete={(id) => setDeleteConfirm(id)}
-        onExport={handleExport}
-        onBulkDelete={(ids) => bulkDeleteMutation.mutate(ids)}
+        onEdit={canUpdate ? (record) => { setEditRecord(record); setShowForm(true); } : undefined}
+        onDelete={canDelete ? (id) => setDeleteConfirm(id) : undefined}
+        onExport={canExport && data?.module?.settings?.allowExport !== false ? handleExport : undefined}
+        onBulkDelete={canDelete && data?.module?.settings?.allowBulkDelete === true
+          ? (ids) => bulkDeleteMutation.mutate(ids)
+          : undefined}
         onRefresh={() => refetch()}
-        allowExport={data?.module?.settings?.allowExport !== false}
-        allowBulkDelete={data?.module?.settings?.allowBulkDelete === true}
+        allowExport={canExport && data?.module?.settings?.allowExport !== false}
+        allowBulkDelete={canDelete && data?.module?.settings?.allowBulkDelete === true}
         sortBy={sortBy}
         sortOrder={sortOrder}
       />
 
-      {/* Create/Edit Modal */}
-      <Modal
-        isOpen={showForm}
-        onClose={() => { setShowForm(false); setEditRecord(null); }}
-        title={editRecord ? `Edit ${moduleName}` : `Add New ${moduleName}`}
-        size="lg"
-      >
-        <DynamicForm
-          fields={fields}
-          defaultValues={editRecord || undefined}
-          onSubmit={(formData) => {
-            if (editRecord) {
-              updateMutation.mutate({ id: editRecord.id as string, data: formData });
-            } else {
-              createMutation.mutate(formData);
-            }
-          }}
-          onCancel={() => { setShowForm(false); setEditRecord(null); }}
-          loading={createMutation.isPending || updateMutation.isPending}
-          submitLabel={editRecord ? 'Update' : 'Create'}
-        />
-      </Modal>
+      {/* Create / Edit Modal — only if user has the relevant permission */}
+      {(canCreate || canUpdate) && (
+        <Modal
+          isOpen={showForm}
+          onClose={() => { setShowForm(false); setEditRecord(null); }}
+          title={editRecord ? `Edit ${moduleName}` : `Add New ${moduleName}`}
+          size="lg"
+        >
+          <DynamicForm
+            fields={fields}
+            defaultValues={editRecord || undefined}
+            onSubmit={(formData) => {
+              if (editRecord) {
+                updateMutation.mutate({ id: editRecord.id as string, data: formData });
+              } else {
+                createMutation.mutate(formData);
+              }
+            }}
+            onCancel={() => { setShowForm(false); setEditRecord(null); }}
+            loading={createMutation.isPending || updateMutation.isPending}
+            submitLabel={editRecord ? 'Update' : 'Create'}
+          />
+        </Modal>
+      )}
 
       {/* View Modal */}
       <Modal
@@ -197,15 +247,24 @@ const DynamicModule: React.FC = () => {
         footer={
           <>
             <Button variant="secondary" onClick={() => setViewRecord(null)}>Close</Button>
-            <Button onClick={() => { setEditRecord(viewRecord); setViewRecord(null); setShowForm(true); }}>Edit</Button>
+            {canUpdate && (
+              <Button onClick={() => { setEditRecord(viewRecord); setViewRecord(null); setShowForm(true); }}>
+                Edit
+              </Button>
+            )}
           </>
         }
       >
         {viewRecord && (
           <div className="space-y-3">
             {fields.filter((f) => f.showInDetail && !f.isHidden).map((field) => (
-              <div key={field.id} className="flex gap-4 py-2 border-b border-surface-100 dark:border-surface-800 last:border-0">
-                <span className="text-sm font-medium text-surface-500 w-36 shrink-0">{field.label || field.name}</span>
+              <div
+                key={field.id}
+                className="flex gap-4 py-2 border-b border-surface-100 dark:border-surface-800 last:border-0"
+              >
+                <span className="text-sm font-medium text-surface-500 w-36 shrink-0">
+                  {field.label || field.name}
+                </span>
                 <span className="text-sm text-surface-800 dark:text-surface-200">
                   {viewRecord[field.columnName] !== null && viewRecord[field.columnName] !== undefined
                     ? String(viewRecord[field.columnName])
@@ -218,28 +277,30 @@ const DynamicModule: React.FC = () => {
       </Modal>
 
       {/* Delete Confirm Modal */}
-      <Modal
-        isOpen={!!deleteConfirm}
-        onClose={() => setDeleteConfirm(null)}
-        title="Confirm Delete"
-        size="sm"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
-            <Button
-              variant="danger"
-              loading={deleteMutation.isPending}
-              onClick={() => deleteConfirm && deleteMutation.mutate(deleteConfirm)}
-            >
-              Delete
-            </Button>
-          </>
-        }
-      >
-        <p className="text-sm text-surface-600 dark:text-surface-400">
-          Are you sure you want to delete this record? This action cannot be undone.
-        </p>
-      </Modal>
+      {canDelete && (
+        <Modal
+          isOpen={!!deleteConfirm}
+          onClose={() => setDeleteConfirm(null)}
+          title="Confirm Delete"
+          size="sm"
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
+              <Button
+                variant="danger"
+                loading={deleteMutation.isPending}
+                onClick={() => deleteConfirm && deleteMutation.mutate(deleteConfirm)}
+              >
+                Delete
+              </Button>
+            </>
+          }
+        >
+          <p className="text-sm text-surface-600 dark:text-surface-400">
+            Are you sure you want to delete this record? This action cannot be undone.
+          </p>
+        </Modal>
+      )}
     </div>
   );
 };

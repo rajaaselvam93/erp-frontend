@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Shield, Plus, Edit, Trash2, Check } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -11,13 +11,19 @@ import { Input, Textarea } from '../../components/ui/Input';
 import { useForm } from 'react-hook-form';
 import type { Role } from '../../types';
 
+interface RoleFormData {
+  name: string;
+  slug: string;
+  description?: string;
+}
+
 const Roles: React.FC = () => {
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [editRole, setEditRole] = useState<Role | null>(null);
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
 
-  const { register, handleSubmit, formState: { errors }, reset } = useForm();
+  const { register, handleSubmit, formState: { errors }, reset } = useForm<RoleFormData>();
 
   const { data: rolesData, isLoading } = useQuery({
     queryKey: ['admin-roles'],
@@ -30,28 +36,91 @@ const Roles: React.FC = () => {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: Record<string, unknown>) => api.post('/roles', { ...data, permissionIds: selectedPermissions }),
+    mutationFn: (data: RoleFormData) =>
+      api.post('/roles', { ...data, permissionIds: selectedPermissions }),
     onSuccess: () => {
       toast.success('Role created');
       queryClient.invalidateQueries({ queryKey: ['admin-roles'] });
+      queryClient.invalidateQueries({ queryKey: ['roles-all'] });
       setShowCreate(false);
       reset();
       setSelectedPermissions([]);
     },
     onError: (err: unknown) => {
       const error = err as { response?: { data?: { message?: string } } };
-      toast.error(error.response?.data?.message || 'Failed');
+      toast.error(error.response?.data?.message || 'Failed to create role');
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: RoleFormData }) =>
+      api.put(`/roles/${id}`, { ...data, permissionIds: selectedPermissions }),
+    onSuccess: () => {
+      toast.success('Role updated');
+      queryClient.invalidateQueries({ queryKey: ['admin-roles'] });
+      queryClient.invalidateQueries({ queryKey: ['roles-all'] });
+      setShowCreate(false);
+      setEditRole(null);
+      reset();
+      setSelectedPermissions([]);
+    },
+    onError: (err: unknown) => {
+      const error = err as { response?: { data?: { message?: string } } };
+      toast.error(error.response?.data?.message || 'Failed to update role');
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/roles/${id}`),
-    onSuccess: () => { toast.success('Role deleted'); queryClient.invalidateQueries({ queryKey: ['admin-roles'] }); },
+    onSuccess: () => {
+      toast.success('Role deleted');
+      queryClient.invalidateQueries({ queryKey: ['admin-roles'] });
+      queryClient.invalidateQueries({ queryKey: ['roles-all'] });
+    },
     onError: (err: unknown) => {
       const error = err as { response?: { data?: { message?: string } } };
       toast.error(error.response?.data?.message || 'Cannot delete role');
     },
   });
+
+  // Pre-populate form when switching to edit mode
+  useEffect(() => {
+    if (editRole) {
+      reset({
+        name: editRole.name,
+        slug: editRole.slug,
+        description: editRole.description || '',
+      });
+      setSelectedPermissions(editRole.permissions?.map((p) => p.id) || []);
+    }
+  }, [editRole, reset]);
+
+  const openCreate = () => {
+    setEditRole(null);
+    reset({ name: '', slug: '', description: '' });
+    setSelectedPermissions([]);
+    setShowCreate(true);
+  };
+
+  const openEdit = (role: Role) => {
+    setEditRole(role);
+    setShowCreate(true);
+  };
+
+  const closeModal = () => {
+    setShowCreate(false);
+    setEditRole(null);
+    reset();
+    setSelectedPermissions([]);
+  };
+
+  const onSubmit = (d: RoleFormData) => {
+    if (editRole) {
+      updateMutation.mutate({ id: editRole.id, data: d });
+    } else {
+      createMutation.mutate(d);
+    }
+  };
 
   const roles: Role[] = rolesData?.data || [];
   const permissions: Record<string, { id: string; name: string; slug: string }[]> = permissionsData || {};
@@ -68,6 +137,8 @@ const Roles: React.FC = () => {
     return <Badge variant="default">User</Badge>;
   };
 
+  const isPending = createMutation.isPending || updateMutation.isPending;
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -75,14 +146,16 @@ const Roles: React.FC = () => {
           <h1 className="text-2xl font-bold text-surface-900 dark:text-surface-50">Roles & Permissions</h1>
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Manage user roles and access control</p>
         </div>
-        <Button icon={<Plus size={16} />} onClick={() => { reset(); setSelectedPermissions([]); setShowCreate(true); }}>
+        <Button icon={<Plus size={16} />} onClick={openCreate}>
           Create Role
         </Button>
       </div>
 
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 3 }).map((_, i) => <Card key={i}><div className="h-20 animate-pulse bg-surface-100 rounded-xl" /></Card>)}
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i}><div className="h-20 animate-pulse bg-surface-100 rounded-xl" /></Card>
+          ))}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -101,15 +174,18 @@ const Roles: React.FC = () => {
                   <div className="flex items-center gap-2 mt-2">
                     {levelBadge(role.level)}
                     <Badge variant="info" size="sm">Level {role.level}</Badge>
-                    {role.permissions && <Badge variant="default" size="sm">{role.permissions.length} perms</Badge>}
+                    {role.permissions && (
+                      <Badge variant="default" size="sm">{role.permissions.length} perms</Badge>
+                    )}
                   </div>
                 </div>
               </div>
               <div className="flex items-center justify-end gap-1 mt-4 pt-4 border-t border-surface-100 dark:border-surface-800">
                 <button
-                  onClick={() => { setEditRole(role); setShowCreate(true); }}
+                  onClick={() => openEdit(role)}
                   disabled={role.isSystem}
                   className="p-1.5 rounded-lg text-surface-400 hover:text-amber-600 hover:bg-amber-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Edit role"
                 >
                   <Edit size={14} />
                 </button>
@@ -117,6 +193,7 @@ const Roles: React.FC = () => {
                   onClick={() => deleteMutation.mutate(role.id)}
                   disabled={role.isSystem}
                   className="p-1.5 rounded-lg text-surface-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Delete role"
                 >
                   <Trash2 size={14} />
                 </button>
@@ -126,25 +203,38 @@ const Roles: React.FC = () => {
         </div>
       )}
 
-      {/* Create/Edit Role Modal */}
+      {/* Create / Edit Role Modal */}
       <Modal
         isOpen={showCreate}
-        onClose={() => { setShowCreate(false); setEditRole(null); reset(); }}
-        title={editRole ? 'Edit Role' : 'Create Role'}
+        onClose={closeModal}
+        title={editRole ? `Edit Role — ${editRole.name}` : 'Create Role'}
         size="xl"
       >
-        <form onSubmit={handleSubmit((d) => createMutation.mutate(d))} className="space-y-5">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           <div className="grid grid-cols-2 gap-4">
-            <Input label="Role Name" required error={errors.name?.message as string} {...register('name', { required: 'Required' })} />
-            <Input label="Slug" required placeholder="e.g. manager" error={errors.slug?.message as string}
-              {...register('slug', { required: 'Required', pattern: { value: /^[a-z0-9-]+$/, message: 'Lowercase, numbers, hyphens only' } })}
+            <Input
+              label="Role Name" required
+              error={errors.name?.message}
+              {...register('name', { required: 'Required' })}
+            />
+            <Input
+              label="Slug" required
+              placeholder="e.g. manager"
+              error={errors.slug?.message}
+              disabled={!!editRole}
+              {...register('slug', {
+                required: 'Required',
+                pattern: { value: /^[a-z0-9-]+$/, message: 'Lowercase, numbers, hyphens only' },
+              })}
             />
           </div>
           <Textarea label="Description" {...register('description')} />
 
           {/* Permissions */}
           <div>
-            <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-3">Permissions</label>
+            <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-3">
+              Permissions
+            </label>
             <div className="space-y-4 max-h-64 overflow-y-auto border border-surface-200 dark:border-surface-700 rounded-xl p-4">
               {Object.entries(permissions).map(([module, perms]) => (
                 <div key={module}>
@@ -168,13 +258,18 @@ const Roles: React.FC = () => {
                   </div>
                 </div>
               ))}
+              {Object.keys(permissions).length === 0 && (
+                <p className="text-sm text-surface-400 text-center py-4">No permissions defined yet</p>
+              )}
             </div>
             <p className="text-xs text-surface-400 mt-2">{selectedPermissions.length} permissions selected</p>
           </div>
 
           <div className="flex justify-end gap-3">
-            <Button type="button" variant="secondary" onClick={() => { setShowCreate(false); setEditRole(null); reset(); }}>Cancel</Button>
-            <Button type="submit" loading={createMutation.isPending}>{editRole ? 'Update' : 'Create Role'}</Button>
+            <Button type="button" variant="secondary" onClick={closeModal}>Cancel</Button>
+            <Button type="submit" loading={isPending}>
+              {editRole ? 'Update Role' : 'Create Role'}
+            </Button>
           </div>
         </form>
       </Modal>

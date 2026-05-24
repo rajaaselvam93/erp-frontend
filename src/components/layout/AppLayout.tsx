@@ -1,16 +1,32 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { clsx } from 'clsx';
-import { useAppSelector } from '../../store';
+import { useQueryClient } from '@tanstack/react-query';
+import { useAppSelector, useAppDispatch } from '../../store';
+import { fetchCurrentUser } from '../../store/authSlice';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import { useSocket } from '../../hooks/useSocket';
 import { useTheme } from '../../hooks/useTheme';
 
 const AppLayout: React.FC = () => {
+  const dispatch = useAppDispatch();
+  const queryClient = useQueryClient();
   const { sidebarCollapsed } = useAppSelector((state) => state.app);
+  const { isAuthenticated, user } = useAppSelector((state) => state.auth);
   useSocket();
   useTheme();
+
+  // On page load/refresh: tokens exist in localStorage but user object is null.
+  // Hydrate Redux, then invalidate the menu cache so Sidebar re-fetches with
+  // the now-authenticated context (backend filter uses the JWT, not Redux state).
+  useEffect(() => {
+    if (isAuthenticated && !user) {
+      dispatch(fetchCurrentUser()).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['menu-tree'] });
+      });
+    }
+  }, [isAuthenticated, user, dispatch, queryClient]);
 
   return (
     <div className="min-h-screen bg-surface-50 dark:bg-surface-950">

@@ -32,6 +32,18 @@ export const logoutThunk = createAsyncThunk('auth/logout', async (_, { getState,
   }
 });
 
+export const fetchCurrentUser = createAsyncThunk(
+  'auth/fetchCurrentUser',
+  async (_, { rejectWithValue }) => {
+    try {
+      return await authService.getMe();
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch user');
+    }
+  }
+);
+
 export const refreshThunk = createAsyncThunk('auth/refresh', async (_, { getState, rejectWithValue }) => {
   try {
     const state = getState() as { auth: AuthState };
@@ -101,6 +113,18 @@ const authSlice = createSlice({
         state.refreshToken = action.payload.refreshToken;
         localStorage.setItem('accessToken', action.payload.accessToken);
         localStorage.setItem('refreshToken', action.payload.refreshToken);
+      })
+      .addCase(fetchCurrentUser.fulfilled, (state, action) => {
+        state.user = action.payload;
+      })
+      .addCase(fetchCurrentUser.rejected, (state) => {
+        // Token is invalid — clear everything
+        state.user = null;
+        state.accessToken = null;
+        state.refreshToken = null;
+        state.isAuthenticated = false;
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
       })
       .addCase(refreshThunk.rejected, (state) => {
         state.user = null;

@@ -28,6 +28,16 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return <>{children}</>;
 };
 
+// Admin-only route wrapper — non-admins are redirected to dashboard
+const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAppSelector((state) => state.auth);
+  const roleSlug = user?.role?.slug;
+  if (roleSlug !== 'admin' && roleSlug !== 'super-admin') {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <>{children}</>;
+};
+
 // Auth route wrapper (redirect if already authenticated)
 const AuthRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAppSelector((state) => state.auth);
@@ -59,12 +69,12 @@ const App: React.FC = () => {
             {/* Dynamic module pages */}
             <Route path="modules/:slug" element={<DynamicModule />} />
 
-            {/* Admin pages */}
-            <Route path="admin/users" element={<Users />} />
-            <Route path="admin/roles" element={<Roles />} />
-            <Route path="admin/modules" element={<Modules />} />
-            <Route path="admin/modules/:id/fields" element={<ModuleFields />} />
-            <Route path="settings" element={<Settings />} />
+            {/* Admin-only pages */}
+            <Route path="admin/users" element={<AdminRoute><Users /></AdminRoute>} />
+            <Route path="admin/roles" element={<AdminRoute><Roles /></AdminRoute>} />
+            <Route path="admin/modules" element={<AdminRoute><Modules /></AdminRoute>} />
+            <Route path="admin/modules/:id/fields" element={<AdminRoute><ModuleFields /></AdminRoute>} />
+            <Route path="settings" element={<AdminRoute><Settings /></AdminRoute>} />
 
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
