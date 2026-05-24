@@ -17,9 +17,6 @@ const AppLayout: React.FC = () => {
   useSocket();
   useTheme();
 
-  // On page load/refresh: tokens exist in localStorage but user object is null.
-  // Hydrate Redux, then invalidate the menu cache so Sidebar re-fetches with
-  // the now-authenticated context (backend filter uses the JWT, not Redux state).
   useEffect(() => {
     if (isAuthenticated && !user) {
       dispatch(fetchCurrentUser()).then(() => {
@@ -29,19 +26,18 @@ const AppLayout: React.FC = () => {
   }, [isAuthenticated, user, dispatch, queryClient]);
 
   return (
-    <div className="min-h-screen bg-surface-50 dark:bg-surface-950">
+    <div className="min-h-screen bg-surface-50 dark:bg-[#0d0d0f]">
       <Sidebar />
       <Header />
 
-      {/* Main Content */}
       <main
         className={clsx(
-          'transition-all duration-300 ease-in-out pt-16',
-          'lg:ml-[260px]',
-          sidebarCollapsed && 'lg:ml-[72px]'
+          'transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pt-[60px]',
+          'lg:ml-[252px]',
+          sidebarCollapsed && 'lg:ml-[70px]'
         )}
       >
-        <div className="p-4 sm:p-6 min-h-[calc(100vh-64px)]">
+        <div className="p-5 sm:p-6 min-h-[calc(100vh-60px)] animate-fade-in">
           <Outlet />
         </div>
       </main>

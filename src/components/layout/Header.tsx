@@ -1,9 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Menu, Bell, Search, Sun, Moon, Monitor,
-  User, LogOut, Settings, ChevronDown, Check,
-} from 'lucide-react';
+import { Menu, Bell, Search, Sun, Moon, Monitor, User, LogOut, Settings, ChevronDown, Check } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { toggleMobileSidebar } from '../../store/appSlice';
@@ -13,202 +10,221 @@ import Badge from '../ui/Badge';
 import type { Theme } from '../../types';
 
 const themeOptions: { label: string; value: Theme; icon: React.ReactNode }[] = [
-  { label: 'Light', value: 'light', icon: <Sun size={14} /> },
-  { label: 'Dark', value: 'dark', icon: <Moon size={14} /> },
-  { label: 'System', value: 'system', icon: <Monitor size={14} /> },
+  { label: 'Light',  value: 'light',  icon: <Sun size={13} /> },
+  { label: 'Dark',   value: 'dark',   icon: <Moon size={13} /> },
+  { label: 'System', value: 'system', icon: <Monitor size={13} /> },
 ];
+
+const Dropdown: React.FC<{
+  open: boolean;
+  className?: string;
+  children: React.ReactNode;
+}> = ({ open, className, children }) => {
+  if (!open) return null;
+  return (
+    <div className={clsx(
+      'absolute right-0 top-[calc(100%+6px)] z-50 animate-slide-down',
+      'bg-white dark:bg-surface-900',
+      'rounded-xl shadow-elevated border border-surface-100 dark:border-surface-800',
+      'overflow-hidden min-w-[160px]',
+      className
+    )}>
+      {children}
+    </div>
+  );
+};
 
 const Header: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { user, fullName, logout } = useAuth();
   const { theme, changeTheme, isDark } = useTheme();
-  const { unreadCount, notifications } = useAppSelector((state) => state.app);
-  const { sidebarCollapsed } = useAppSelector((state) => state.app);
+  const { unreadCount, notifications, sidebarCollapsed } = useAppSelector((state) => state.app);
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
 
-  const userMenuRef = useRef<HTMLDivElement>(null);
+  const userRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
+  const themeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
-        setUserMenuOpen(false);
-        setThemeMenuOpen(false);
+      if (userRef.current && !userRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false); setThemeMenuOpen(false);
       }
-      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
-        setNotifOpen(false);
-      }
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  const iconBtn = clsx(
+    'p-2 rounded-xl text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-surface-100',
+    'hover:bg-surface-100/80 dark:hover:bg-surface-800/60 transition-all duration-150'
+  );
+
   return (
     <header
       className={clsx(
-        'fixed top-0 right-0 z-30 h-16 flex items-center gap-3 px-4 bg-white border-b border-surface-100 transition-all duration-300',
-        'dark:bg-surface-900 dark:border-surface-800',
-        sidebarCollapsed ? 'left-[72px]' : 'left-[260px]',
-        'lg:left-auto',
-        'w-full lg:w-auto'
+        'fixed top-0 right-0 z-30 h-[60px] flex items-center gap-2 px-4',
+        'bg-white/90 backdrop-blur-md border-b border-surface-100/80',
+        'dark:bg-surface-950/90 dark:border-surface-800/60',
+        'transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]',
+        'left-0 lg:left-[252px]',
+        sidebarCollapsed && 'lg:left-[70px]'
       )}
-      style={{
-        left: undefined,
-        width: '100%',
-      }}
     >
-      {/* Mobile menu toggle */}
-      <button
-        onClick={() => dispatch(toggleMobileSidebar())}
-        className="lg:hidden p-2 rounded-xl text-surface-400 hover:bg-surface-100 hover:text-surface-600 dark:hover:bg-surface-800"
-      >
-        <Menu size={20} />
+      {/* Mobile hamburger */}
+      <button onClick={() => dispatch(toggleMobileSidebar())} className={clsx(iconBtn, 'lg:hidden')}>
+        <Menu size={18} />
       </button>
 
-      {/* Search */}
+      {/* Search trigger */}
       <button
-        onClick={() => setSearchOpen(true)}
-        className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl border border-surface-200 text-surface-400 text-sm hover:border-primary-300 hover:text-primary-600 transition-all dark:border-surface-700 dark:hover:border-primary-500"
-        style={{ minWidth: 200 }}
+        className={clsx(
+          'hidden sm:flex items-center gap-2 h-8 px-3 rounded-xl text-sm',
+          'border border-surface-200 dark:border-surface-700/80',
+          'bg-surface-50/80 dark:bg-surface-800/50',
+          'text-surface-400 dark:text-surface-500',
+          'hover:border-primary-300 hover:text-primary-600 dark:hover:border-primary-600 dark:hover:text-primary-400',
+          'transition-all duration-150',
+          'min-w-[180px]'
+        )}
       >
-        <Search size={14} />
-        <span>Search anything...</span>
-        <kbd className="ml-auto text-xs bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 rounded text-surface-400">⌘K</kbd>
+        <Search size={13} />
+        <span className="flex-1 text-left text-xs">Search…</span>
+        <kbd className="text-[10px]">⌘K</kbd>
       </button>
 
       <div className="flex-1" />
 
-      {/* Theme Toggle */}
-      <div className="relative" ref={userMenuRef}>
+      {/* Theme toggle */}
+      <div className="relative" ref={themeRef}>
         <button
-          onClick={() => { setThemeMenuOpen((v) => !v); setUserMenuOpen(false); }}
-          className="p-2 rounded-xl text-surface-400 hover:bg-surface-100 hover:text-surface-600 dark:hover:bg-surface-800 transition-colors"
-          title="Change theme"
+          onClick={() => { setThemeMenuOpen((v) => !v); setUserMenuOpen(false); setNotifOpen(false); }}
+          className={iconBtn}
+          title="Theme"
         >
-          {isDark ? <Moon size={18} /> : <Sun size={18} />}
+          {isDark ? <Moon size={16} /> : <Sun size={16} />}
         </button>
-
-        {themeMenuOpen && (
-          <div className="absolute right-0 top-full mt-2 w-40 bg-white dark:bg-surface-900 rounded-xl shadow-elevated border border-surface-100 dark:border-surface-800 overflow-hidden animate-scale-in z-50">
-            {themeOptions.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => { changeTheme(opt.value); setThemeMenuOpen(false); }}
-                className={clsx(
-                  'w-full flex items-center gap-3 px-4 py-2.5 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800',
-                  theme === opt.value && 'text-primary-600 dark:text-primary-400'
-                )}
-              >
-                {opt.icon}
-                <span>{opt.label}</span>
-                {theme === opt.value && <Check size={14} className="ml-auto" />}
-              </button>
-            ))}
-          </div>
-        )}
+        <Dropdown open={themeMenuOpen} className="w-36">
+          {themeOptions.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => { changeTheme(opt.value); setThemeMenuOpen(false); }}
+              className={clsx(
+                'w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors',
+                'hover:bg-surface-50 dark:hover:bg-surface-800',
+                theme === opt.value
+                  ? 'text-primary-600 dark:text-primary-400 font-medium'
+                  : 'text-surface-600 dark:text-surface-400'
+              )}
+            >
+              {opt.icon}<span className="flex-1 text-left">{opt.label}</span>
+              {theme === opt.value && <Check size={12} />}
+            </button>
+          ))}
+        </Dropdown>
       </div>
 
       {/* Notifications */}
       <div className="relative" ref={notifRef}>
         <button
-          onClick={() => { setNotifOpen((v) => !v); }}
-          className="relative p-2 rounded-xl text-surface-400 hover:bg-surface-100 hover:text-surface-600 dark:hover:bg-surface-800 transition-colors"
+          onClick={() => { setNotifOpen((v) => !v); setUserMenuOpen(false); setThemeMenuOpen(false); }}
+          className={clsx(iconBtn, 'relative')}
         >
-          <Bell size={18} />
+          <Bell size={16} />
           {unreadCount > 0 && (
-            <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </span>
+            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full ring-2 ring-white dark:ring-surface-950" />
           )}
         </button>
-
-        {notifOpen && (
-          <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-surface-900 rounded-xl shadow-elevated border border-surface-100 dark:border-surface-800 overflow-hidden animate-scale-in z-50">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-surface-100 dark:border-surface-800">
-              <span className="text-sm font-semibold text-surface-900 dark:text-surface-50">Notifications</span>
-              {unreadCount > 0 && (
-                <Badge variant="primary">{unreadCount} new</Badge>
-              )}
-            </div>
-            <div className="max-h-64 overflow-y-auto">
-              {notifications.slice(0, 5).length > 0 ? (
-                notifications.slice(0, 5).map((n) => (
-                  <div key={n.id} className={clsx('flex gap-3 px-4 py-3 hover:bg-surface-50 dark:hover:bg-surface-800 cursor-pointer', !n.isRead && 'bg-primary-50/30 dark:bg-primary-900/10')}>
-                    <div className="w-2 h-2 rounded-full bg-primary-500 mt-1.5 shrink-0 opacity-0" style={{ opacity: n.isRead ? 0 : 1 }} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-surface-900 dark:text-surface-100 truncate">{n.title}</p>
-                      {n.message && <p className="text-xs text-surface-500 truncate mt-0.5">{n.message}</p>}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="py-8 text-center text-sm text-surface-400">No notifications</div>
-              )}
-            </div>
-            <div className="px-4 py-2.5 border-t border-surface-100 dark:border-surface-800">
-              <button onClick={() => { navigate('/notifications'); setNotifOpen(false); }} className="w-full text-center text-sm text-primary-600 hover:text-primary-700 font-medium">
-                View all
-              </button>
-            </div>
+        <Dropdown open={notifOpen} className="w-72 right-0">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-surface-100 dark:border-surface-800">
+            <span className="text-xs font-semibold text-surface-900 dark:text-surface-50">Notifications</span>
+            {unreadCount > 0 && <Badge variant="primary" size="sm">{unreadCount} new</Badge>}
           </div>
-        )}
+          <div className="max-h-64 overflow-y-auto">
+            {notifications.slice(0, 5).length > 0 ? notifications.slice(0, 5).map((n) => (
+              <div key={n.id} className={clsx(
+                'flex gap-3 px-4 py-3 hover:bg-surface-50 dark:hover:bg-surface-800/60 cursor-pointer',
+                !n.isRead && 'bg-primary-50/40 dark:bg-primary-900/10'
+              )}>
+                <div className={clsx('w-1.5 h-1.5 rounded-full mt-1.5 shrink-0', n.isRead ? 'opacity-0' : 'bg-primary-500')} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-surface-900 dark:text-surface-100 truncate">{n.title}</p>
+                  {n.message && <p className="text-[11px] text-surface-500 truncate mt-0.5">{n.message}</p>}
+                </div>
+              </div>
+            )) : (
+              <div className="py-8 text-center text-xs text-surface-400">No notifications</div>
+            )}
+          </div>
+          <div className="px-4 py-2.5 border-t border-surface-100 dark:border-surface-800">
+            <button
+              onClick={() => { navigate('/notifications'); setNotifOpen(false); }}
+              className="w-full text-center text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400 font-medium"
+            >
+              View all
+            </button>
+          </div>
+        </Dropdown>
       </div>
 
-      {/* User Menu */}
-      <div className="relative" ref={userMenuRef}>
+      {/* Divider */}
+      <div className="w-px h-5 bg-surface-200 dark:bg-surface-700 mx-1 hidden sm:block" />
+
+      {/* User menu */}
+      <div className="relative" ref={userRef}>
         <button
-          onClick={() => { setUserMenuOpen((v) => !v); setThemeMenuOpen(false); }}
-          className="flex items-center gap-2.5 pl-2 pr-3 py-2 rounded-xl hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+          onClick={() => { setUserMenuOpen((v) => !v); setThemeMenuOpen(false); setNotifOpen(false); }}
+          className={clsx(
+            'flex items-center gap-2 pl-1 pr-2.5 py-1.5 rounded-xl',
+            'hover:bg-surface-100/80 dark:hover:bg-surface-800/60',
+            'transition-all duration-150'
+          )}
         >
           {user?.avatar ? (
-            <img src={user.avatar} alt={fullName} className="w-8 h-8 rounded-full object-cover" />
+            <img src={user.avatar} alt={fullName} className="w-7 h-7 rounded-full object-cover ring-2 ring-surface-200 dark:ring-surface-700" />
           ) : (
-            <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold text-sm dark:bg-primary-900/30 dark:text-primary-400">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-semibold text-xs">
               {user?.firstName?.[0]}{user?.lastName?.[0]}
             </div>
           )}
           <div className="hidden sm:block text-left">
-            <div className="text-sm font-medium text-surface-800 dark:text-surface-200 leading-none">{fullName}</div>
-            <div className="text-xs text-surface-400 mt-0.5">{user?.role?.name}</div>
+            <div className="text-xs font-semibold text-surface-800 dark:text-surface-200 leading-none">{fullName}</div>
+            <div className="text-[10px] text-surface-400 mt-0.5">{user?.role?.name}</div>
           </div>
-          <ChevronDown size={14} className="text-surface-400 hidden sm:block" />
+          <ChevronDown size={12} className="text-surface-400 hidden sm:block" />
         </button>
 
-        {userMenuOpen && !themeMenuOpen && (
-          <div className="absolute right-0 top-full mt-2 w-52 bg-white dark:bg-surface-900 rounded-xl shadow-elevated border border-surface-100 dark:border-surface-800 overflow-hidden animate-scale-in z-50">
-            <div className="px-4 py-3 border-b border-surface-100 dark:border-surface-800">
-              <p className="text-sm font-medium text-surface-900 dark:text-surface-50">{fullName}</p>
-              <p className="text-xs text-surface-400 mt-0.5 truncate">{user?.email}</p>
-            </div>
-            {[
-              { label: 'Profile', icon: <User size={14} />, path: '/profile' },
-              { label: 'Settings', icon: <Settings size={14} />, path: '/settings' },
-            ].map((item) => (
-              <button
-                key={item.label}
-                onClick={() => { navigate(item.path); setUserMenuOpen(false); }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800"
-              >
-                {item.icon}
-                {item.label}
-              </button>
-            ))}
-            <div className="border-t border-surface-100 dark:border-surface-800 mt-1">
-              <button
-                onClick={logout}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10"
-              >
-                <LogOut size={14} />
-                Sign Out
-              </button>
-            </div>
+        <Dropdown open={userMenuOpen && !themeMenuOpen} className="w-52">
+          <div className="px-4 py-3 border-b border-surface-100 dark:border-surface-800">
+            <p className="text-xs font-semibold text-surface-900 dark:text-surface-50">{fullName}</p>
+            <p className="text-[11px] text-surface-400 mt-0.5 truncate">{user?.email}</p>
           </div>
-        )}
+          {[
+            { label: 'Profile',  icon: <User size={13} />,     path: '/profile' },
+            { label: 'Settings', icon: <Settings size={13} />, path: '/settings' },
+          ].map((item) => (
+            <button
+              key={item.label}
+              onClick={() => { navigate(item.path); setUserMenuOpen(false); }}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800/60 transition-colors"
+            >
+              <span className="text-surface-400">{item.icon}</span>{item.label}
+            </button>
+          ))}
+          <div className="border-t border-surface-100 dark:border-surface-800">
+            <button
+              onClick={logout}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
+            >
+              <LogOut size={13} />Sign out
+            </button>
+          </div>
+        </Dropdown>
       </div>
     </header>
   );

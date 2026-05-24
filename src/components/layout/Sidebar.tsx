@@ -3,31 +3,47 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { clsx } from 'clsx';
 import {
   LayoutDashboard, Users, UserCog, Settings, ChevronDown,
-  ChevronRight, BarChart3, X, Database, Building2, Briefcase,
-  ShoppingCart, Package, DollarSign, UserCheck, BarChart2,
+  ChevronRight, BarChart2, X, Database, Building2, Briefcase,
+  ShoppingCart, Package, DollarSign, UserCheck, ChevronLeft,
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { toggleSidebar, closeMobileSidebar } from '../../store/appSlice';
 import { useAuth } from '../../hooks/useAuth';
 
-// Map icon names stored in the DB to Lucide components
 const iconMap: Record<string, React.ReactNode> = {
-  'layout-dashboard': <LayoutDashboard size={18} />,
-  'users': <Users size={18} />,
-  'database': <Database size={18} />,
-  'bar-chart': <BarChart3 size={18} />,
-  'bar-chart-2': <BarChart2 size={18} />,
-  'settings': <Settings size={18} />,
-  'user-cog': <UserCog size={18} />,
-  'user-check': <UserCheck size={18} />,
-  'building': <Building2 size={18} />,
-  'briefcase': <Briefcase size={18} />,
-  'shopping-cart': <ShoppingCart size={18} />,
-  'package': <Package size={18} />,
-  'dollar-sign': <DollarSign size={18} />,
+  'layout-dashboard': <LayoutDashboard size={16} />,
+  'users':            <Users size={16} />,
+  'database':         <Database size={16} />,
+  'bar-chart-2':      <BarChart2 size={16} />,
+  'settings':         <Settings size={16} />,
+  'user-cog':         <UserCog size={16} />,
+  'user-check':       <UserCheck size={16} />,
+  'building':         <Building2 size={16} />,
+  'briefcase':        <Briefcase size={16} />,
+  'shopping-cart':    <ShoppingCart size={16} />,
+  'package':          <Package size={16} />,
+  'dollar-sign':      <DollarSign size={16} />,
 };
 
-const renderIcon = (icon?: string) => icon ? (iconMap[icon] ?? <Database size={18} />) : <Database size={18} />;
+// Per-module accent colors for icon backgrounds
+const iconColors: Record<string, string> = {
+  '/dashboard':   'bg-primary-100 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400',
+  '/hrms':        'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400',
+  '/crm':         'bg-sky-100 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400',
+  '/procurement': 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400',
+  '/inventory':   'bg-teal-100 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400',
+  '/sales':       'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400',
+  '/finance':     'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
+  '/projects':    'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400',
+  '/reports':     'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400',
+  // admin
+  '/admin/users': 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
+  '/admin/roles': 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',
+  '/admin/modules':'bg-surface-100 text-surface-600 dark:bg-surface-800 dark:text-surface-400',
+  '/settings':    'bg-surface-100 text-surface-600 dark:bg-surface-800 dark:text-surface-400',
+};
+
+const renderIcon = (icon?: string) => icon ? (iconMap[icon] ?? <Database size={16} />) : <Database size={16} />;
 
 interface NavItemDef {
   name: string;
@@ -46,28 +62,29 @@ const SidebarItem: React.FC<NavItemDef & { collapsed?: boolean; depth?: number }
     ? location.pathname === path || location.pathname.startsWith(path + '/')
     : false;
 
+  const accentClass = path ? (iconColors[path] ?? 'bg-surface-100 text-surface-500 dark:bg-surface-800 dark:text-surface-400') : '';
+
   if (hasChildren) {
     return (
       <div>
         <button
           onClick={() => setExpanded((v) => !v)}
           className={clsx(
-            'w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150',
-            'text-surface-600 hover:bg-surface-100 hover:text-surface-900',
-            'dark:text-surface-400 dark:hover:bg-surface-800 dark:hover:text-surface-100',
-            isActive && 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-400'
+            'w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm font-medium transition-all duration-150',
+            'text-surface-600 hover:bg-surface-100/80 hover:text-surface-900',
+            'dark:text-surface-400 dark:hover:bg-surface-800/60 dark:hover:text-surface-100',
+            isActive && 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300'
           )}
         >
-          <span className="shrink-0">{renderIcon(icon)}</span>
           {!collapsed && (
             <>
               <span className="flex-1 text-left truncate">{name}</span>
-              {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              <ChevronDown size={13} className={clsx('transition-transform duration-200 shrink-0', expanded && 'rotate-180')} />
             </>
           )}
         </button>
         {expanded && !collapsed && (
-          <div className="mt-1 ml-4 pl-3 border-l border-surface-100 dark:border-surface-800 space-y-1">
+          <div className="mt-0.5 ml-3 pl-3 border-l border-surface-100 dark:border-surface-800 space-y-0.5">
             {children.map((child) => (
               <SidebarItem key={child.name} {...child} depth={depth + 1} collapsed={false} />
             ))}
@@ -83,15 +100,27 @@ const SidebarItem: React.FC<NavItemDef & { collapsed?: boolean; depth?: number }
       title={collapsed ? name : undefined}
       className={({ isActive: navActive }) =>
         clsx(
-          'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150',
-          'text-surface-600 hover:bg-surface-100 hover:text-surface-900',
-          'dark:text-surface-400 dark:hover:bg-surface-800 dark:hover:text-surface-100',
-          navActive && 'bg-primary-50 !text-primary-700 dark:bg-primary-900/20 dark:!text-primary-400'
+          'group flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm font-medium transition-all duration-150',
+          navActive
+            ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300'
+            : 'text-surface-600 hover:bg-surface-100/80 hover:text-surface-900 dark:text-surface-400 dark:hover:bg-surface-800/60 dark:hover:text-surface-100'
         )
       }
     >
-      <span className="shrink-0">{renderIcon(icon)}</span>
-      {!collapsed && <span className="truncate">{name}</span>}
+      {({ isActive: navActive }) => (
+        <>
+          <span className={clsx(
+            'shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-150',
+            navActive ? accentClass : 'text-surface-400 dark:text-surface-500 group-hover:text-surface-600 dark:group-hover:text-surface-400'
+          )}>
+            {renderIcon(icon)}
+          </span>
+          {!collapsed && <span className="truncate">{name}</span>}
+          {!collapsed && navActive && (
+            <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary-500 shrink-0" />
+          )}
+        </>
+      )}
     </NavLink>
   );
 };
@@ -101,21 +130,21 @@ const staticTop: NavItemDef[] = [
 ];
 
 const erpModules: NavItemDef[] = [
-  { name: 'HRMS', path: '/hrms', icon: 'user-check' },
-  { name: 'CRM', path: '/crm', icon: 'users' },
+  { name: 'HRMS',        path: '/hrms',        icon: 'user-check' },
+  { name: 'CRM',         path: '/crm',         icon: 'users' },
   { name: 'Procurement', path: '/procurement', icon: 'building' },
-  { name: 'Inventory', path: '/inventory', icon: 'package' },
-  { name: 'Sales', path: '/sales', icon: 'shopping-cart' },
-  { name: 'Finance', path: '/finance', icon: 'dollar-sign' },
-  { name: 'Projects', path: '/projects', icon: 'briefcase' },
-  { name: 'Reports & BI', path: '/reports', icon: 'bar-chart-2' },
+  { name: 'Inventory',   path: '/inventory',   icon: 'package' },
+  { name: 'Sales',       path: '/sales',       icon: 'shopping-cart' },
+  { name: 'Finance',     path: '/finance',     icon: 'dollar-sign' },
+  { name: 'Projects',    path: '/projects',    icon: 'briefcase' },
+  { name: 'Reports & BI', path: '/reports',   icon: 'bar-chart-2' },
 ];
 
 const adminItems: NavItemDef[] = [
-  { name: 'Users', path: '/admin/users', icon: 'users' },
-  { name: 'Roles', path: '/admin/roles', icon: 'user-cog' },
-  { name: 'Modules', path: '/admin/modules', icon: 'database' },
-  { name: 'Settings', path: '/settings', icon: 'settings' },
+  { name: 'Users',    path: '/admin/users',    icon: 'users' },
+  { name: 'Roles',    path: '/admin/roles',    icon: 'user-cog' },
+  { name: 'Modules',  path: '/admin/modules',  icon: 'database' },
+  { name: 'Settings', path: '/settings',       icon: 'settings' },
 ];
 
 const Sidebar: React.FC = () => {
@@ -125,72 +154,76 @@ const Sidebar: React.FC = () => {
 
   return (
     <>
-      {/* Mobile Overlay */}
+      {/* Mobile overlay */}
       {sidebarMobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          className="fixed inset-0 z-40 bg-surface-900/50 backdrop-blur-sm lg:hidden"
           onClick={() => dispatch(closeMobileSidebar())}
         />
       )}
 
-      {/* Sidebar */}
       <aside
         className={clsx(
-          'fixed top-0 left-0 bottom-0 z-50 flex flex-col bg-white border-r border-surface-100 transition-all duration-300 ease-in-out',
-          'dark:bg-surface-900 dark:border-surface-800',
-          sidebarCollapsed ? 'w-[72px]' : 'w-[260px]',
-          'lg:translate-x-0',
+          'fixed top-0 left-0 bottom-0 z-50 flex flex-col',
+          'bg-white border-r border-surface-100/80',
+          'dark:bg-surface-950 dark:border-surface-800/60',
+          'transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]',
+          sidebarCollapsed ? 'w-[70px]' : 'w-[252px]',
           sidebarMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
       >
         {/* Logo */}
-        <div className="flex items-center gap-3 px-4 h-16 border-b border-surface-100 dark:border-surface-800 shrink-0">
-          <div className="w-9 h-9 rounded-xl bg-primary-500 flex items-center justify-center shadow-sm shrink-0">
-            <span className="text-white font-bold text-lg">E</span>
-          </div>
-          {!sidebarCollapsed && (
-            <div className="min-w-0">
-              <div className="font-bold text-surface-900 dark:text-surface-50 truncate">Evvo ERP</div>
-              <div className="text-xs text-surface-400">Enterprise Platform</div>
+        <div className={clsx(
+          'flex items-center h-[60px] border-b border-surface-100/80 dark:border-surface-800/60 shrink-0',
+          sidebarCollapsed ? 'px-[17px]' : 'px-4'
+        )}>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center shadow-sm shadow-primary-500/30 shrink-0">
+              <span className="text-white font-bold text-base">E</span>
             </div>
-          )}
-          {sidebarMobileOpen && (
+            {!sidebarCollapsed && (
+              <div className="min-w-0">
+                <div className="font-bold text-sm text-surface-900 dark:text-surface-50 truncate leading-none">Evvo ERP</div>
+                <div className="text-[10px] text-surface-400 dark:text-surface-500 mt-0.5">Enterprise Platform</div>
+              </div>
+            )}
+          </div>
+          {sidebarMobileOpen && !sidebarCollapsed && (
             <button
               onClick={() => dispatch(closeMobileSidebar())}
-              className="ml-auto p-1.5 rounded-lg text-surface-400 hover:bg-surface-100 lg:hidden"
+              className="ml-auto p-1 rounded-lg text-surface-400 hover:bg-surface-100 lg:hidden"
             >
-              <X size={16} />
+              <X size={15} />
             </button>
           )}
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1 no-scrollbar">
-          {/* Always-visible top items */}
+        <nav className="flex-1 overflow-y-auto py-3 px-2.5 space-y-0.5 no-scrollbar">
           {staticTop.map((item) => (
             <SidebarItem key={item.name} {...item} collapsed={sidebarCollapsed} />
           ))}
 
-          {/* ERP Business Modules */}
-          <div className={clsx('pt-4 pb-2', !sidebarCollapsed && 'px-3')}>
+          {/* Business Modules */}
+          <div className="pt-4 pb-1">
             {!sidebarCollapsed ? (
-              <p className="text-xs font-semibold uppercase tracking-wider text-surface-400">Business Modules</p>
+              <p className="section-label">Business Modules</p>
             ) : (
-              <div className="border-t border-surface-100 dark:border-surface-800" />
+              <div className="border-t border-surface-100 dark:border-surface-800 mx-1" />
             )}
           </div>
           {erpModules.map((item) => (
             <SidebarItem key={item.name} {...item} collapsed={sidebarCollapsed} />
           ))}
 
-          {/* Admin section */}
+          {/* Administration */}
           {isAdmin && (
             <>
-              <div className={clsx('pt-4 pb-2', !sidebarCollapsed && 'px-3')}>
+              <div className="pt-4 pb-1">
                 {!sidebarCollapsed ? (
-                  <p className="text-xs font-semibold uppercase tracking-wider text-surface-400">Administration</p>
+                  <p className="section-label">Administration</p>
                 ) : (
-                  <div className="border-t border-surface-100 dark:border-surface-800" />
+                  <div className="border-t border-surface-100 dark:border-surface-800 mx-1" />
                 )}
               </div>
               {adminItems.map((item) => (
@@ -200,17 +233,24 @@ const Sidebar: React.FC = () => {
           )}
         </nav>
 
-        {/* Collapse Toggle */}
-        <div className="p-3 border-t border-surface-100 dark:border-surface-800 hidden lg:block">
+        {/* Collapse toggle */}
+        <div className="p-2.5 border-t border-surface-100/80 dark:border-surface-800/60 hidden lg:block">
           <button
             onClick={() => dispatch(toggleSidebar())}
-            className="w-full flex items-center justify-center gap-2 p-2 rounded-xl text-surface-400 hover:bg-surface-100 hover:text-surface-600 dark:hover:bg-surface-800 transition-colors"
+            className={clsx(
+              'w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-medium',
+              'text-surface-400 hover:bg-surface-100/80 hover:text-surface-600',
+              'dark:text-surface-500 dark:hover:bg-surface-800/60 dark:hover:text-surface-400',
+              'transition-all duration-150',
+              sidebarCollapsed && 'justify-center'
+            )}
           >
-            <ChevronRight
-              size={16}
-              className={clsx('transition-transform duration-300', !sidebarCollapsed && 'rotate-180')}
-            />
-            {!sidebarCollapsed && <span className="text-xs">Collapse</span>}
+            {sidebarCollapsed ? <ChevronRight size={15} /> : (
+              <>
+                <ChevronLeft size={15} />
+                <span>Collapse</span>
+              </>
+            )}
           </button>
         </div>
       </aside>
