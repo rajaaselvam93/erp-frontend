@@ -3,7 +3,8 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { clsx } from 'clsx';
 import {
   LayoutDashboard, Users, UserCog, Settings, ChevronDown,
-  ChevronRight, BarChart3, X, Database,
+  ChevronRight, BarChart3, X, Database, Building2, Briefcase,
+  ShoppingCart, Package, DollarSign, UserCheck, BarChart2,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAppDispatch, useAppSelector } from '../../store';
@@ -21,8 +22,15 @@ const iconMap: Record<string, React.ReactNode> = {
   'users': <Users size={18} />,
   'database': <Database size={18} />,
   'bar-chart': <BarChart3 size={18} />,
+  'bar-chart-2': <BarChart2 size={18} />,
   'settings': <Settings size={18} />,
   'user-cog': <UserCog size={18} />,
+  'user-check': <UserCheck size={18} />,
+  'building': <Building2 size={18} />,
+  'briefcase': <Briefcase size={18} />,
+  'shopping-cart': <ShoppingCart size={18} />,
+  'package': <Package size={18} />,
+  'dollar-sign': <DollarSign size={18} />,
 };
 
 const renderIcon = (icon?: string) => icon ? (iconMap[icon] ?? <Database size={18} />) : <Database size={18} />;
@@ -106,8 +114,18 @@ const staticTop: NavItemDef[] = [
   { name: 'Dashboard', path: '/dashboard', icon: 'layout-dashboard' },
 ];
 
+const erpModules: NavItemDef[] = [
+  { name: 'HRMS', path: '/hrms', icon: 'user-check' },
+  { name: 'CRM', path: '/crm', icon: 'users' },
+  { name: 'Procurement', path: '/procurement', icon: 'building' },
+  { name: 'Inventory', path: '/inventory', icon: 'package' },
+  { name: 'Sales', path: '/sales', icon: 'shopping-cart' },
+  { name: 'Finance', path: '/finance', icon: 'dollar-sign' },
+  { name: 'Projects', path: '/projects', icon: 'briefcase' },
+];
+
 const staticBottom: NavItemDef[] = [
-  { name: 'Reports', path: '/reports', icon: 'bar-chart' },
+  { name: 'Reports & BI', path: '/reports', icon: 'bar-chart-2' },
 ];
 
 const adminItems: NavItemDef[] = [
@@ -193,12 +211,24 @@ const Sidebar: React.FC = () => {
             <SidebarItem key={item.name} {...item} collapsed={sidebarCollapsed} />
           ))}
 
+          {/* ERP Business Modules */}
+          <div className={clsx('pt-4 pb-2', !sidebarCollapsed && 'px-3')}>
+            {!sidebarCollapsed ? (
+              <p className="text-xs font-semibold uppercase tracking-wider text-surface-400">Business Modules</p>
+            ) : (
+              <div className="border-t border-surface-100 dark:border-surface-800" />
+            )}
+          </div>
+          {erpModules.map((item) => (
+            <SidebarItem key={item.name} {...item} collapsed={sidebarCollapsed} />
+          ))}
+
           {/* Dynamic modules from API */}
           {dynamicNavItems.length > 0 && (
             <>
               <div className={clsx('pt-4 pb-2', !sidebarCollapsed && 'px-3')}>
                 {!sidebarCollapsed ? (
-                  <p className="text-xs font-semibold uppercase tracking-wider text-surface-400">Modules</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-surface-400">Custom Modules</p>
                 ) : (
                   <div className="border-t border-surface-100 dark:border-surface-800" />
                 )}

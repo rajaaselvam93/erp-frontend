@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect } from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -20,6 +20,16 @@ const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/auth/ResetPassword'));
 const ModuleFields = lazy(() => import('./pages/admin/ModuleFields'));
 const NotFound = lazy(() => import('./pages/NotFound'));
+
+// ERP Business Modules
+const HRMS = lazy(() => import('./pages/hrms/HRMS'));
+const CRM = lazy(() => import('./pages/crm/CRM'));
+const Procurement = lazy(() => import('./pages/procurement/Procurement'));
+const Inventory = lazy(() => import('./pages/inventory/Inventory'));
+const Sales = lazy(() => import('./pages/sales/Sales'));
+const Finance = lazy(() => import('./pages/finance/Finance'));
+const Projects = lazy(() => import('./pages/projects/Projects'));
+const Reports = lazy(() => import('./pages/reports/Reports'));
 
 // Protected route wrapper
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -68,6 +78,16 @@ const App: React.FC = () => {
 
             {/* Dynamic module pages */}
             <Route path="modules/:slug" element={<DynamicModule />} />
+
+            {/* ERP Business Modules */}
+            <Route path="hrms" element={<HRMS />} />
+            <Route path="crm" element={<CRM />} />
+            <Route path="procurement" element={<Procurement />} />
+            <Route path="inventory" element={<Inventory />} />
+            <Route path="sales" element={<Sales />} />
+            <Route path="finance" element={<Finance />} />
+            <Route path="projects" element={<Projects />} />
+            <Route path="reports" element={<Reports />} />
 
             {/* Admin-only pages */}
             <Route path="admin/users" element={<AdminRoute><Users /></AdminRoute>} />
