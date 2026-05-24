@@ -6,15 +6,9 @@ import {
   ChevronRight, BarChart3, X, Database, Building2, Briefcase,
   ShoppingCart, Package, DollarSign, UserCheck, BarChart2,
 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { toggleSidebar, closeMobileSidebar } from '../../store/appSlice';
 import { useAuth } from '../../hooks/useAuth';
-import { moduleService } from '../../services/module.service';
-import type { MenuItem } from '../../types';
-
-// Actions checked when deciding whether to show a module in the sidebar
-const MODULE_ACTIONS = ['read', 'create', 'update', 'delete', 'export', 'import'] as const;
 
 // Map icon names stored in the DB to Lucide components
 const iconMap: Record<string, React.ReactNode> = {
@@ -102,14 +96,6 @@ const SidebarItem: React.FC<NavItemDef & { collapsed?: boolean; depth?: number }
   );
 };
 
-// Convert API MenuItem to NavItemDef
-const menuItemToNav = (item: MenuItem): NavItemDef => ({
-  name: item.name,
-  path: item.path,
-  icon: item.icon ?? 'database',
-  children: item.children?.map(menuItemToNav),
-});
-
 const staticTop: NavItemDef[] = [
   { name: 'Dashboard', path: '/dashboard', icon: 'layout-dashboard' },
 ];
@@ -122,9 +108,6 @@ const erpModules: NavItemDef[] = [
   { name: 'Sales', path: '/sales', icon: 'shopping-cart' },
   { name: 'Finance', path: '/finance', icon: 'dollar-sign' },
   { name: 'Projects', path: '/projects', icon: 'briefcase' },
-];
-
-const staticBottom: NavItemDef[] = [
   { name: 'Reports & BI', path: '/reports', icon: 'bar-chart-2' },
 ];
 
@@ -138,30 +121,7 @@ const adminItems: NavItemDef[] = [
 const Sidebar: React.FC = () => {
   const dispatch = useAppDispatch();
   const { sidebarCollapsed, sidebarMobileOpen } = useAppSelector((state) => state.app);
-  const { isAuthenticated } = useAppSelector((state) => state.auth);
-  const { user, isAdmin, hasPermission } = useAuth();
-
-  const { data: menuItems = [] } = useQuery({
-    queryKey: ['menu-tree'],
-    queryFn: () => moduleService.getMenuTree(),
-    enabled: isAuthenticated,
-    staleTime: 30 * 1000, // 30 s — refresh after module changes
-  });
-
-  // Frontend safety-net: filter dynamic menu items by the user's permissions.
-  // Skip the filter when user is null (page-refresh hydration window) — the backend
-  // already filtered the menu response, so trust it until user loads into Redux.
-  const dynamicNavItems: NavItemDef[] = menuItems
-    .filter((item) => {
-      if (!user) return true; // hydrating — trust backend-filtered response
-      if (isAdmin) return true;
-      // Extract the module slug from paths of the form /modules/{slug}
-      const match = item.path?.match(/^\/modules\/([^/]+)/);
-      if (!match) return true; // non-module path — always show
-      const moduleSlug = match[1];
-      return MODULE_ACTIONS.some((action) => hasPermission(`${moduleSlug}.${action}`));
-    })
-    .map(menuItemToNav);
+  const { isAdmin } = useAuth();
 
   return (
     <>
@@ -220,27 +180,6 @@ const Sidebar: React.FC = () => {
             )}
           </div>
           {erpModules.map((item) => (
-            <SidebarItem key={item.name} {...item} collapsed={sidebarCollapsed} />
-          ))}
-
-          {/* Dynamic modules from API */}
-          {dynamicNavItems.length > 0 && (
-            <>
-              <div className={clsx('pt-4 pb-2', !sidebarCollapsed && 'px-3')}>
-                {!sidebarCollapsed ? (
-                  <p className="text-xs font-semibold uppercase tracking-wider text-surface-400">Custom Modules</p>
-                ) : (
-                  <div className="border-t border-surface-100 dark:border-surface-800" />
-                )}
-              </div>
-              {dynamicNavItems.map((item) => (
-                <SidebarItem key={item.name + item.path} {...item} collapsed={sidebarCollapsed} />
-              ))}
-            </>
-          )}
-
-          {/* Always-visible bottom items */}
-          {staticBottom.map((item) => (
             <SidebarItem key={item.name} {...item} collapsed={sidebarCollapsed} />
           ))}
 
